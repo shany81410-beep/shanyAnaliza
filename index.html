@@ -3,132 +3,163 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>משיכת נתוני מניות מ-Yahoo Finance</title>
+    <title>מערכת דוחות מניות - Yahoo Finance</title>
+    
     <script src="https://cdn.tailwindcss.com"></script>
+    
     <script>
+        // הגדרת פלטת צבעים פיננסית
         tailwind.config = {
             theme: {
                 extend: {
                     colors: {
                         finance: {
-                            blue: '#0f172a',
-                            slate: '#475569',
-                            light: '#f8fafc',
-                            accent: '#3b82f6'
+                            dark: '#0f172a',    /* Slate 900 */
+                            slate: '#475569',   /* Slate 600 */
+                            blue: '#2563eb',    /* Blue 600 */
+                            light: '#f8fafc'    /* Slate 50 */
                         }
                     }
                 }
             }
         }
     </script>
+    
     <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; }
         .ltr-input { direction: ltr; text-align: left; }
     </style>
 </head>
-<body class="bg-finance-light text-finance-blue min-h-screen flex items-center justify-center p-4 font-sans">
-    <div class="bg-white p-8 rounded-xl shadow-lg w-full max-w-md border border-gray-200">
-        <h1 class="text-2xl font-bold mb-2 text-center text-finance-blue">דוח מניות - Yahoo Finance</h1>
-        <p class="text-sm text-finance-slate mb-6 text-center">הזן את פרטי המניות ליצירת גיליון נתונים מאוחד</p>
+<body class="bg-finance-light min-h-screen flex items-center justify-center p-6 text-finance-dark">
 
-        <form id="stockForm" class="space-y-4">
+    <div class="bg-white shadow-2xl rounded-2xl p-8 w-full max-w-md border border-slate-200">
+        
+        <header class="text-center mb-8">
+            <h1 class="text-3xl font-bold tracking-tight text-finance-dark">משיכת נתוני מניות</h1>
+            <p class="text-finance-slate mt-2">יצירת גיליון Google Sheets מאוחד</p>
+        </header>
+
+        <form id="stockForm" class="space-y-5">
+            
             <div>
-                <label for="tickers" class="block text-sm font-medium mb-1">סימולי מניות (מופרדים בפסיק)</label>
-                <input type="text" id="tickers" placeholder="TSLA, AAPL, AMZN" required
-                    class="ltr-input w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-finance-accent outline-none">
+                <label for="tickers" class="block text-sm font-semibold mb-1">סימולי מניות (מופרדים בפסיק)</label>
+                <input type="text" id="tickers" placeholder="למשל: TSLA, NVDA, AAPL" required
+                    class="ltr-input w-full px-4 py-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-finance-blue focus:border-finance-blue outline-none transition-all">
             </div>
 
-            <div class="flex gap-4">
-                <div class="w-1/2">
-                    <label for="startDate" class="block text-sm font-medium mb-1">תאריך התחלה</label>
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label for="startDate" class="block text-sm font-semibold mb-1">תאריך התחלה</label>
                     <input type="date" id="startDate" required
-                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-finance-accent outline-none">
+                        class="w-full px-4 py-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-finance-blue outline-none transition-all">
                 </div>
-                <div class="w-1/2">
-                    <label for="endDate" class="block text-sm font-medium mb-1">תאריך סיום</label>
+                <div>
+                    <label for="endDate" class="block text-sm font-semibold mb-1">תאריך סיום</label>
                     <input type="date" id="endDate" required
-                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-finance-accent outline-none">
+                        class="w-full px-4 py-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-finance-blue outline-none transition-all">
                 </div>
             </div>
 
             <div>
-                <label for="frequency" class="block text-sm font-medium mb-1">תדירות</label>
-                <select id="frequency" required
-                    class="ltr-input w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-finance-accent outline-none">
-                    <option value="1d">Daily (יומי)</option>
-                    <option value="1wk">Weekly (שבועי)</option>
-                    <option value="1mo">Monthly (חודשי)</option>
+                <label for="frequency" class="block text-sm font-semibold mb-1">תדירות דגימה</label>
+                <select id="frequency" class="w-full px-4 py-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-finance-blue outline-none appearance-none bg-white">
+                    <option value="1d">יומי (Daily)</option>
+                    <option value="1wk">שבועי (Weekly)</option>
+                    <option value="1mo">חודשי (Monthly)</option>
                 </select>
             </div>
 
             <button type="submit" id="submitBtn"
-                class="w-full mt-4 bg-finance-blue hover:bg-finance-slate text-white font-bold py-3 px-4 rounded-lg transition-colors flex justify-center items-center">
-                <span id="btnText">צור דוח מניות</span>
+                class="w-full bg-finance-dark hover:bg-finance-blue text-white font-bold py-4 rounded-xl transition-all transform active:scale-95 shadow-lg flex justify-center items-center gap-3">
+                <span id="btnText">צור גיליון נתונים</span>
+                <svg id="loader" class="animate-spin h-5 w-5 text-white hidden" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
             </button>
         </form>
 
-        <div id="errorMsg" class="hidden mt-4 p-3 bg-red-100 text-red-700 rounded-lg text-sm text-center"></div>
+        <div id="errorBox" class="mt-6 hidden p-4 bg-red-50 border border-red-200 text-red-700 rounded-xl text-sm text-center font-medium"></div>
 
-        <div id="successArea" class="hidden mt-6 text-center border-t border-gray-100 pt-6">
-            <h2 class="text-lg font-semibold text-green-600 mb-4">הגיליון נוצר בהצלחה!</h2>
-            <a id="sheetLink" href="#" target="_blank"
-                class="inline-block w-full bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-4 rounded-lg transition-colors shadow-md">
-                פתח את הגיליון ב-Google Sheets
+        <div id="successBox" class="mt-8 hidden text-center border-t border-slate-100 pt-6">
+            <div class="mb-4 text-green-600 font-semibold flex items-center justify-center gap-2">
+                <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg>
+                הגיליון נוצר בהצלחה!
+            </div>
+            <a id="sheetUrl" href="#" target="_blank"
+                class="inline-block bg-green-500 hover:bg-green-600 text-white font-bold py-4 px-8 rounded-full transition-all shadow-md transform hover:scale-105">
+                פתח ב-Google Sheets
             </a>
         </div>
+
     </div>
 
     <script>
-        // כתובת השרת האמיתית שלך:
-        const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbzzWUuNGkU_-Kp4JEyy6VB_FzxXnndCU_Ga6iVGBXdpVGCQ-51W2JRtKPI-UXEXhFba/exec';
+        // הקישור המעודכן שלך לשרת (Backend)
+        const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbzXr7FCUvXZop4MKhwO91h6MRuIwBpdK1gUzAIOIOhCVOrDt78ih3c4hbcUaGInttLV/exec';
 
         const form = document.getElementById('stockForm');
         const submitBtn = document.getElementById('submitBtn');
         const btnText = document.getElementById('btnText');
-        const successArea = document.getElementById('successArea');
-        const sheetLink = document.getElementById('sheetLink');
-        const errorMsg = document.getElementById('errorMsg');
+        const loader = document.getElementById('loader');
+        const errorBox = document.getElementById('errorBox');
+        const successBox = document.getElementById('successBox');
+        const sheetLink = document.getElementById('sheetUrl');
 
         form.addEventListener('submit', async (e) => {
-            e.preventDefault(); 
-            errorMsg.classList.add('hidden');
-            successArea.classList.add('hidden');
-
-            const tickersRaw = document.getElementById('tickers').value;
-            const tickersArray = tickersRaw.split(',').map(ticker => ticker.trim().toUpperCase()).filter(t => t);
-
+            e.preventDefault();
+            
+            // איפוס תצוגה
+            errorBox.classList.add('hidden');
+            successBox.classList.add('hidden');
+            
+            // איסוף נתונים
+            const tickersInput = document.getElementById('tickers').value;
+            const tickers = tickersInput.split(',').map(t => t.trim().toUpperCase()).filter(t => t);
+            
             const payload = {
-                tickers: tickersArray,
+                tickers: tickers,
                 startDate: document.getElementById('startDate').value,
                 endDate: document.getElementById('endDate').value,
                 frequency: document.getElementById('frequency').value
             };
 
-            btnText.textContent = "טוען נתונים...";
+            // מצב טעינה
+            btnText.textContent = "מעבד נתונים...";
+            loader.classList.remove('hidden');
             submitBtn.disabled = true;
-            submitBtn.classList.add('opacity-75', 'cursor-not-allowed');
+            submitBtn.classList.add('opacity-75');
 
             try {
+                // שליחת הבקשה לשרת
                 const response = await fetch(WEB_APP_URL, {
                     method: 'POST',
                     headers: { 'Content-Type': 'text/plain;charset=utf-8' },
                     body: JSON.stringify(payload)
                 });
-                const data = await response.json();
 
-                if (data.sheetUrl) {
-                    sheetLink.href = data.sheetUrl;
-                    successArea.classList.remove('hidden');
-                    form.reset(); 
+                if (!response.ok) throw new Error('השרת לא הגיב כראוי');
+
+                const result = await response.json();
+
+                if (result.status === 'success') {
+                    sheetLink.href = result.sheetUrl;
+                    successBox.classList.remove('hidden');
+                    form.reset();
                 } else {
-                    throw new Error(data.message || "השרת לא החזיר URL.");
+                    throw new Error(result.message || 'שגיאת שרת לא ידועה');
                 }
-            } catch (error) {
-                errorMsg.textContent = "אירעה שגיאה: " + error.message;
-                errorMsg.classList.remove('hidden');
+
+            } catch (err) {
+                errorBox.textContent = "שגיאה: " + err.message;
+                errorBox.classList.remove('hidden');
             } finally {
-                btnText.textContent = "צור דוח מניות";
+                // סיום טעינה
+                btnText.textContent = "צור גיליון נתונים";
+                loader.classList.add('hidden');
                 submitBtn.disabled = false;
-                submitBtn.classList.remove('opacity-75', 'cursor-not-allowed');
+                submitBtn.classList.remove('opacity-75');
             }
         });
     </script>
