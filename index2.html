@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>משיכת נתוני מניות - פלטפורמה פיננסית</title>
+    <title>משיכת נתוני מניות מ-Yahoo Finance</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     
@@ -13,113 +13,101 @@
                 extend: {
                     colors: {
                         finance: {
-                            dark: '#0f172a', // Slate 900
-                            primary: '#1e3a8a', // Blue 900
-                            accent: '#3b82f6', // Blue 500
-                            light: '#f8fafc', // Slate 50
-                            border: '#cbd5e1' // Slate 300
+                            blue: '#0f172a',    /* כחול כהה */
+                            slate: '#475569',   /* אפור סלייט */
+                            light: '#f8fafc',   /* רקע בהיר */
+                            accent: '#3b82f6'   /* כחול בוהק לכפתורים */
                         }
                     }
                 }
             }
         }
     </script>
+    <style>
+        /* יישור טקסט לשמאל עבור שדות באנגלית גם בממשק ימני */
+        .ltr-input {
+            direction: ltr;
+            text-align: left;
+        }
+    </style>
 </head>
-<body class="bg-finance-light text-finance-dark font-sans antialiased min-h-screen flex items-center justify-center p-4">
+<body class="bg-finance-light text-finance-blue min-h-screen flex items-center justify-center p-4 font-sans">
 
-    <div class="bg-white rounded-2xl shadow-xl w-full max-w-lg p-8 border border-finance-border">
+    <div class="bg-white p-8 rounded-xl shadow-lg w-full max-w-md border border-gray-200">
         
-        <div class="mb-8 text-center">
-            <h1 class="text-2xl font-bold text-finance-primary mb-2">דוח מניות היסטורי</h1>
-            <p class="text-sm text-slate-500">הזן סימולים כדי לייצר גיליון נתונים מאוחד</p>
-        </div>
+        <h1 class="text-2xl font-bold mb-2 text-center text-finance-blue">דוח מניות - Yahoo Finance</h1>
+        <p class="text-sm text-finance-slate mb-6 text-center">הזן את פרטי המניות ליצירת גיליון נתונים מאוחד</p>
 
-        <form id="stockForm" class="space-y-5">
+        <form id="stockForm" class="space-y-4">
             
             <div>
-                <label for="tickers" class="block text-sm font-semibold mb-1">סימולי מניות (מופרדים בפסיק)</label>
-                <input type="text" id="tickers" name="tickers" placeholder="לדוגמה: AAPL, MSFT, TSLA" required
-                    class="w-full px-4 py-2 border border-finance-border rounded-lg focus:ring-2 focus:ring-finance-accent focus:border-finance-accent outline-none transition-all dir-ltr text-left uppercase">
+                <label for="tickers" class="block text-sm font-medium mb-1">סימולי מניות (מופרדים בפסיק)</label>
+                <input type="text" id="tickers" placeholder="TSLA, AAPL, AMZN" required
+                    class="ltr-input w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-finance-accent focus:border-finance-accent outline-none transition-colors">
             </div>
 
-            <div class="grid grid-cols-2 gap-4">
-                <div>
-                    <label for="startDate" class="block text-sm font-semibold mb-1">תאריך התחלה</label>
-                    <input type="date" id="startDate" name="startDate" required
-                        class="w-full px-4 py-2 border border-finance-border rounded-lg focus:ring-2 focus:ring-finance-accent outline-none">
+            <div class="flex gap-4">
+                <div class="w-1/2">
+                    <label for="startDate" class="block text-sm font-medium mb-1">תאריך התחלה</label>
+                    <input type="date" id="startDate" required
+                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-finance-accent outline-none">
                 </div>
-
-                <div>
-                    <label for="endDate" class="block text-sm font-semibold mb-1">תאריך סיום</label>
-                    <input type="date" id="endDate" name="endDate" required
-                        class="w-full px-4 py-2 border border-finance-border rounded-lg focus:ring-2 focus:ring-finance-accent outline-none">
+                <div class="w-1/2">
+                    <label for="endDate" class="block text-sm font-medium mb-1">תאריך סיום</label>
+                    <input type="date" id="endDate" required
+                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-finance-accent outline-none">
                 </div>
             </div>
 
             <div>
-                <label for="frequency" class="block text-sm font-semibold mb-1">תדירות נתונים</label>
-                <select id="frequency" name="frequency" required
-                    class="w-full px-4 py-2 border border-finance-border rounded-lg focus:ring-2 focus:ring-finance-accent outline-none bg-white">
-                    <option value="1d">יומי (Daily)</option>
-                    <option value="1wk">שבועי (Weekly)</option>
-                    <option value="1mo">חודשי (Monthly)</option>
+                <label for="frequency" class="block text-sm font-medium mb-1">תדירות</label>
+                <select id="frequency" required
+                    class="ltr-input w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-finance-accent outline-none">
+                    <option value="1d">Daily (יומי)</option>
+                    <option value="1wk">Weekly (שבועי)</option>
+                    <option value="1mo">Monthly (חודשי)</option>
                 </select>
             </div>
 
-            <button type="submit" id="submitBtn" 
-                class="w-full bg-finance-primary hover:bg-blue-800 text-white font-bold py-3 rounded-lg shadow-md transition-colors flex justify-center items-center gap-2 mt-4">
-                <span id="btnText">הפק דוח נתונים</span>
-                <svg id="loadingIcon" class="hidden animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
+            <button type="submit" id="submitBtn"
+                class="w-full mt-4 bg-finance-blue hover:bg-finance-slate text-white font-bold py-3 px-4 rounded-lg transition-colors flex justify-center items-center">
+                <span id="btnText">צור דוח מניות</span>
             </button>
         </form>
 
-        <div id="resultContainer" class="hidden mt-8 pt-6 border-t border-finance-border text-center">
-            <div class="inline-flex items-center justify-center w-12 h-12 rounded-full bg-green-100 mb-4">
-                <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
-            </div>
-            <h3 class="text-lg font-bold text-finance-dark mb-1">הנתונים נמשכו בהצלחה!</h3>
-            <p class="text-sm text-slate-500 mb-6">גיליון הנתונים שלך מוכן וממתין ב-Google Sheets.</p>
+        <div id="errorMsg" class="hidden mt-4 p-3 bg-red-100 text-red-700 rounded-lg text-sm text-center"></div>
+
+        <div id="successArea" class="hidden mt-6 text-center border-t border-gray-100 pt-6">
+            <h2 class="text-lg font-semibold text-green-600 mb-4">הגיליון נוצר בהצלחה!</h2>
             
-            <a id="sheetLink" href="#" target="_blank" rel="noopener noreferrer"
-                class="inline-block w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded-lg shadow-md transition-colors text-decoration-none">
-                פתח גיליון מניות
+            <a id="sheetLink" href="#" target="_blank"
+                class="inline-block w-full bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-4 rounded-lg transition-colors shadow-md">
+                פתח את הגיליון ב-Google Sheets
             </a>
         </div>
-
-        <div id="errorContainer" class="hidden mt-4 p-3 bg-red-50 border border-red-200 text-red-600 rounded-lg text-sm text-center">
-            </div>
 
     </div>
 
     <script>
-        // יש להחליף את הכתובת הזו ב-URL שקיבלת מהפריסה של Google Apps Script
-        const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbwnafgc82XnhnNnRQBH4SaNRwQ2ws35gTBvT8FmRXs/dev';
+        // הכתובת האמיתית שלך לשרת ה-Apps Script הוטמעה כאן:
+        const WEB_APP_URL = 'https://script.googleusercontent.com/macros/echo?user_content_key=AWDtjMXmNA2M6ZG9ROrNgzyjMYAq8OCri0wBkROGYVaJ1P6q27aRpse8D5R0uRjf9S0ROVCT4t5zaUvV1mqo6NFA1IPvjioG2JwEEuCpJurX_9hOVUVdxn8XV7W4sy0QXlPd0ABV6VzGxF68llLveVR4zMbpVfyPbO8b3gVQh1CbhVi18MIHF79QcDg9ayqqfrdKwZWYTOYka9LCMLnNVMfwyrDcuo7BCm9vXGI0qQF1EEG7GlxMaXE&lib=M4jtejugDs1zSgmOmEZcHu-glDXMNhJyl';
 
         const form = document.getElementById('stockForm');
         const submitBtn = document.getElementById('submitBtn');
         const btnText = document.getElementById('btnText');
-        const loadingIcon = document.getElementById('loadingIcon');
-        const resultContainer = document.getElementById('resultContainer');
+        const successArea = document.getElementById('successArea');
         const sheetLink = document.getElementById('sheetLink');
-        const errorContainer = document.getElementById('errorContainer');
-
-        // קביעת תאריך ברירת מחדל (היום ושנה אחורה)
-        const today = new Date();
-        const lastYear = new Date(new Date().setFullYear(today.getFullYear() - 1));
-        document.getElementById('endDate').valueAsDate = today;
-        document.getElementById('startDate').valueAsDate = lastYear;
+        const errorMsg = document.getElementById('errorMsg');
 
         form.addEventListener('submit', async (e) => {
-            e.preventDefault(); // מניעת רענון הדף בעת שליחת הטופס
-
-            // 1. איסוף הנתונים מהטופס
-            const rawTickers = document.getElementById('tickers').value;
-            // ניקוי רווחים והפיכה לאותיות גדולות, הפיכה למערך
-            const tickersArray = rawTickers.split(',').map(t => t.trim().toUpperCase()).filter(t => t !== '');
+            e.preventDefault(); 
             
+            errorMsg.classList.add('hidden');
+            successArea.classList.add('hidden');
+
+            const tickersRaw = document.getElementById('tickers').value;
+            const tickersArray = tickersRaw.split(',').map(ticker => ticker.trim().toUpperCase()).filter(t => t);
+
             const payload = {
                 tickers: tickersArray,
                 startDate: document.getElementById('startDate').value,
@@ -127,52 +115,36 @@
                 frequency: document.getElementById('frequency').value
             };
 
-            // 2. עדכון מצב UI ל"טוען"
+            btnText.textContent = "טוען נתונים...";
             submitBtn.disabled = true;
             submitBtn.classList.add('opacity-75', 'cursor-not-allowed');
-            btnText.textContent = 'טוען נתונים...';
-            loadingIcon.classList.remove('hidden');
-            resultContainer.classList.add('hidden');
-            errorContainer.classList.add('hidden');
 
             try {
-                // 3. שליחת הבקשה לשרת ה-GAS
                 const response = await fetch(WEB_APP_URL, {
                     method: 'POST',
-                    // שימוש ב-text/plain כדי למנוע בקשת OPTIONS מוקדמת (Preflight) שגוגל חוסמת לעיתים
                     headers: {
-                        'Content-Type': 'text/plain;charset=utf-8',
+                        'Content-Type': 'text/plain;charset=utf-8' 
                     },
                     body: JSON.stringify(payload)
                 });
 
-                if (!response.ok) {
-                    throw new Error('שגיאת רשת בגישה לשרת.');
-                }
-
                 const data = await response.json();
 
-                // 4. טיפול בתשובה
-                if (data.status === 'success') {
-                    // הכל עבד כשורה
+                if (data.sheetUrl) {
                     sheetLink.href = data.sheetUrl;
-                    resultContainer.classList.remove('hidden');
-                    form.reset(); // איפוס הטופס להזנה הבאה
+                    successArea.classList.remove('hidden');
+                    form.reset(); 
                 } else {
-                    // השרת החזיר הודעת שגיאה (למשל, בעיה במשיכת טיקר)
-                    throw new Error(data.message || 'אירעה שגיאה בעיבוד הנתונים בשרת.');
+                    throw new Error(data.message || "השרת לא החזיר כתובת URL של הגיליון.");
                 }
 
             } catch (error) {
-                console.error('Error:', error);
-                errorContainer.textContent = error.message || 'אירעה שגיאה בלתי צפויה. נסה שוב מאוחר יותר.';
-                errorContainer.classList.remove('hidden');
+                errorMsg.textContent = "אירעה שגיאה: " + error.message;
+                errorMsg.classList.remove('hidden');
             } finally {
-                // 5. החזרת הכפתור למצב רגיל בכל מקרה (הצלחה או שגיאה)
+                btnText.textContent = "צור דוח מניות";
                 submitBtn.disabled = false;
                 submitBtn.classList.remove('opacity-75', 'cursor-not-allowed');
-                btnText.textContent = 'הפק דוח נתונים';
-                loadingIcon.classList.add('hidden');
             }
         });
     </script>
