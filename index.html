@@ -1,0 +1,185 @@
+/**
+ * 1. פונקציית GET פשוטה
+ * משמשת לבדיקה שהשרת חי וזמין (Health check).
+ */
+function doGet(e) {
+  return ContentService.createTextOutput("Server is running");
+}
+
+/**
+ * 2. פונקציית POST המרכזית
+ * מקבלת JSON, מושכת נתונים מ-Yahoo, ממזגת, יוצרת גיליון ומחזירה URL.
+ */
+function doPost(e) {
+  try {
+    // --- שלב 1: קבלת ה-JSON ופירוקו ---
+    const payload = JSON.parse(e.postData.contents);
+    const tickers = payload.tickers; // מערך של מניות, למשל: ['AAPL', 'MSFT']
+    const startDate = payload.startDate; // פורמט תאריך כגון '2023-01-01'
+    const endDate = payload.endDate;
+    const frequency = payload.frequency; // תדירות, כגון '1d', '1wk', '1mo'
+
+    // Yahoo Finance מצפה לתאריכים בפורמט Unix Timestamp (שניות ולא אלפיות שנייה)
+    const period1 = Math.floor(new Date(startDate).getTime() / 1000);
+    const period2 = Math.floor(new Date(endDate).getTime() / 1000);
+
+    // --- שלב 2: מנגנון Cookie/Crumb ---
+    // קריאה לפונקציית העזר כדי לקבל את אסימוני הגישה
+    const auth = getYahooAuth();
+    const cookie = auth.cookie;
+    const crumb = auth.crumb;
+
+    // --- שלב 3: איחוד (Data Merging) ---
+    // ניצור אובייקט שישמש אותנו כ-Dictionary למשיכת הנתונים
+    // מבנה: { "2023-01-01": { "AAPL": 150.5, "MSFT": 250.2 }, ... }
+    const dataMap = {};
+    const allDates = new Set(); // שימוש ב-Set כדי לשמור רשימה ייחודית של כל התאריכים
+
+    // נעבור על כל מניה במערך הטיקרים
+    for (let i = 0; i < tickers.length; i++) {
+      const ticker = tickers[i];
+      
+      // בניית כתובת ה-API להורדת קובץ ה-CSV הספציפי
+      const url = `https://query1.finance.yahoo.com/v7/finance/download/${ticker}?period1=${period1}&period2=${period2}&interval=${frequency}&events=history&crumb=${crumb}`;
+
+      const options = {
+        method: "get",
+        headers: {
+          "Cookie": cookie,
+          "User-Agent": "Mozilla/5.0" // חיוני כדי ש-Yahoo לא יחסום את הבקשה
+        },
+        muteHttpExceptions: true
+      };
+
+      const response = UrlFetchApp.fetch(url, options);
+
+      // מוודאים שהבקשה עברה בהצלחה
+      if (response.getResponseCode() === 200) {
+        const csvText = response.getContentText();
+        const csvData = Utilities.parseCsv(csvText); // הפיכת המחרוזת למערך דו-ממדי
+
+        if (csvData.length > 1) {
+          const headers = csvData[0];
+          // חילוץ האינדקסים של העמודות המבוקשות
+          const dateIdx = headers.indexOf("Date");
+          const adjCloseIdx = headers.indexOf("Adj Close");
+
+          if (dateIdx !== -1 && adjCloseIdx !== -1) {
+            // מעבר על הנתונים (החל משורה 1, אחרי הכותרות)
+            for (let j = 1; j < csvData.length; j++) {
+              const row = csvData[j];
+              const dateVal = row[dateIdx];
+              const adjCloseVal = row[adjCloseIdx];
+
+              // סינון שורות ריקות או חסרות ערך ("null")
+              if (dateVal && adjCloseVal !== "null") {
+                allDates.add(dateVal);
+                
+                // אם התאריך עדיין לא קיים במילון שלנו, ניצור לו אובייקט חדש
+                if (!dataMap[dateVal]) {
+                  dataMap[dateVal] = {};
+                }
+                
+                // שמירת מחיר הסגירה המותאם של הטיקר בתאריך הספציפי
+                dataMap[dateVal][ticker] = adjCloseVal;
+              }
+            }
+          }
+        }
+      } else {
+        Logger.log(`Failed to fetch data for ${ticker}. Status: ${response.getResponseCode()}`);
+      }
+    }
+
+    // המרת ה-Set למערך ומיון כרונולוגי של התאריכים
+    const sortedDates = Array.from(allDates).sort();
+
+    // בניית טבלה דו-ממדית להזנה ב-Google Sheets
+    const finalTable = [];
+    const headerRow = ["Date", ...tickers]; // שורת הכותרות: Date, AAPL, MSFT...
+    finalTable.push(headerRow);
+
+    // מעבר על התאריכים הממוינים והרכבת השורות
+    for (let i = 0; i < sortedDates.length; i++) {
+      const date = sortedDates[i];
+      const row = [date];
+      
+      for (let j = 0; j < tickers.length; j++) {
+        const ticker = tickers[j];
+        // משיכת הערך לאותו תאריך ולטיקר. אם חסר (NaN/מניה לא נסחרה ביום הזה), נכניס תא ריק
+        row.push(dataMap[date][ticker] || ""); 
+      }
+      finalTable.push(row);
+    }
+
+    // --- שלב 4: יצירת גיליון גוגל והגדרת הרשאות ---
+    const timestampStr = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyy-MM-dd HH:mm:ss");
+    const ss = SpreadsheetApp.create(`Merged Yahoo Finance Data - ${timestampStr}`);
+    const sheet = ss.getActiveSheet();
+
+    // כתיבת הטבלה כולה לגיליון בפעולה אחת (יעיל יותר מערכים בודדים)
+    if (finalTable.length > 1) {
+      sheet.getRange(1, 1, finalTable.length, finalTable[0].length).setValues(finalTable);
+    }
+
+    // שינוי הרשאות ל-Anyone with link באמצעות DriveApp
+    const file = DriveApp.getFileById(ss.getId());
+    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+
+    // --- שלב 5: החזרת URL הגיליון בתגובת JSON ---
+    const responsePayload = {
+      status: "success",
+      sheetUrl: ss.getUrl()
+    };
+
+    return ContentService.createTextOutput(JSON.stringify(responsePayload))
+      .setMimeType(ContentService.MimeType.JSON);
+
+  } catch (error) {
+    // במידה ויש שגיאה (כגון JSON שגוי, בעיות הרשאות), נחזיר אותה בצורה מסודרת
+    const errorPayload = {
+      status: "error",
+      message: error.toString()
+    };
+    return ContentService.createTextOutput(JSON.stringify(errorPayload))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+/**
+ * פונקציית עזר להשגת אסימוני ההזדהות מ-Yahoo Finance.
+ * מתחברת תחילה לכתובת בסיסית כדי למשוך Cookie, ואז משתמשת בו כדי למשוך Crumb ייעודי.
+ */
+function getYahooAuth() {
+  const cookieUrl = 'https://fc.yahoo.com';
+  const cookieOptions = {
+    muteHttpExceptions: true,
+    headers: { "User-Agent": "Mozilla/5.0" }
+  };
+
+  const cookieResponse = UrlFetchApp.fetch(cookieUrl, cookieOptions);
+  const headers = cookieResponse.getAllHeaders();
+  let cookie = '';
+
+  // מציאת ועיבוד ה-Set-Cookie מהתגובה
+  if (headers['Set-Cookie']) {
+    // ה-Header יכול לחזור כמחרוזת או כמערך של מחרוזות, נטפל בשני המקרים
+    const cookiesArray = Array.isArray(headers['Set-Cookie']) ? headers['Set-Cookie'] : [headers['Set-Cookie']];
+    // לקיחת החלק הרלוונטי בלבד מכל Cookie
+    cookie = cookiesArray.map(c => c.split(';')[0]).join('; ');
+  }
+
+  const crumbUrl = 'https://query1.finance.yahoo.com/v1/test/getcrumb';
+  const crumbOptions = {
+    headers: {
+      "Cookie": cookie,
+      "User-Agent": "Mozilla/5.0"
+    },
+    muteHttpExceptions: true
+  };
+
+  const crumbResponse = UrlFetchApp.fetch(crumbUrl, crumbOptions);
+  const crumb = crumbResponse.getContentText();
+
+  return { cookie: cookie, crumb: crumb };
+}
